@@ -325,22 +325,29 @@ new_phone_number = st.text_input(
 # Handle Update Contact button click
 if st.button("Update Contact"):
     try:
-        # Check if the entered Aadhaar number matches the records in the database
-        cursor.execute(
-            "SELECT * FROM Voter_Table WHERE AADHAAR = %s", (aadhaar_update_contact,))
-        user = cursor.fetchone()
+        # Check if the procedure already exists
+        cursor.execute("SHOW PROCEDURE STATUS LIKE 'UpdatePhoneNumber'")
+        existing_procedure = cursor.fetchone()
 
-        if user:
-            # Update the phone number in the Voter_Table
-            cursor.execute("UPDATE Voter_Table SET Phone = %s WHERE AADHAAR = %s",
-                           (new_phone_number, aadhaar_update_contact))
+        if not existing_procedure:
+            # Create the stored procedure
+            cursor.execute("""
+                CREATE PROCEDURE UpdatePhoneNumber(IN aadharNumber VARCHAR(20), IN newPhoneNumber VARCHAR(15))
+                BEGIN
+                    UPDATE Voter_Table
+                    SET Phone = newPhoneNumber
+                    WHERE AADHAAR = aadharNumber;
+                END
+            """)
             conn.commit()
 
-            # Show the updated Aadhaar and phone number
-            st.success(
-                f"Contact information updated successfully! Updated Aadhaar: {aadhaar_update_contact}, Updated Phone Number: {new_phone_number}")
-        else:
-            st.error("Invalid Aadhaar number. Please try again.")
+        # Call the stored procedure
+        cursor.execute("CALL UpdatePhoneNumber(%s, %s)", (aadhaar_update_contact, new_phone_number))
+        conn.commit()
+
+        # Show the updated Aadhaar and phone number
+        st.success(f"Contact information updated successfully! Updated Aadhaar: {aadhaar_update_contact}, Updated Phone Number: {new_phone_number}")
+
     except mysql.connector.Error as err:
         st.error(f"Error: {err}")
 
